@@ -259,10 +259,29 @@ const handleChar = (ch) => {
 
   // Word wrap
   const cfg = state.cfg;
-  if (
-    cfg.wrapColumn > 0 &&
-    state.lines[state.cursorLine].length > cfg.wrapColumn
-  ) {
+  if (cfg.mode === "screenplay") {
+    const current = state.lines[state.cursorLine];
+    const ind = spIndent(current);
+    // Ancho máximo por tipo de elemento (columna absoluta de ruptura)
+    let maxCol;
+    if      (ind >= 18) maxCol = ind + 40;  // personaje
+    else if (ind >= 13) maxCol = ind + 25;  // paréntesis
+    else if (ind >= 8)  maxCol = ind + 35;  // diálogo: ~35 chars
+    else                maxCol = Math.min(cfg.wrapColumn > 0 ? cfg.wrapColumn : 80, 60);
+    if (current.length > maxCol) {
+      let breakAt = -1;
+      for (let i = Math.min(maxCol, current.length - 1); i >= ind + 1; i--) {
+        if (current[i] === " ") { breakAt = i; break; }
+      }
+      if (breakAt > 0) {
+        const next = " ".repeat(ind) + current.slice(breakAt + 1).trimStart();
+        state.lines[state.cursorLine] = current.slice(0, breakAt);
+        state.lines.splice(state.cursorLine + 1, 0, next);
+        state.cursorLine++;
+        state.cursorCol = ind + Math.max(0, state.cursorCol - breakAt - 1);
+      }
+    }
+  } else if (cfg.wrapColumn > 0 && state.lines[state.cursorLine].length > cfg.wrapColumn) {
     const current = state.lines[state.cursorLine];
     if (!/^#{1,3} /.test(current)) {
       let breakAt = -1;
@@ -329,6 +348,7 @@ const handleDelete = () => {
 };
 
 const handleEnter = () => {
+  if (state.cfg.mode === "screenplay") { screenplayEnter(); return; }
   if (state.selectionStart && state.selectionEnd) deselect();
   pushUndo(snapshot());
   const ln = state.lines[state.cursorLine];
@@ -364,6 +384,7 @@ const handleEnter = () => {
 };
 
 const handleTab = () => {
+  if (state.cfg.mode === "screenplay") { screenplayTab(); return; }
   pushUndo(snapshot());
   const ln = state.lines[state.cursorLine];
   const tab = " ".repeat(state.cfg.tabSize);
@@ -617,8 +638,153 @@ const handleGotoInput = (code) => {
   render();
 };
 
+// ─── Modo Screenplay ──────────────────────────────────────────────────────────
+const SP = { ACTION: 0, CHARACTER: 20, DIALOGUE: 10, PARENTHETICAL: 15 };
+
+const spIndent = (ln) => ln.match(/^ */)[0].length;
+
+const spNextOnEnter = (indent) => {
+  if (indent >= 20) return SP.DIALOGUE;       // character → dialogue
+  if (indent >= 14) return SP.DIALOGUE;       // parenthetical → dialogue
+  if (indent >= 8)  return SP.CHARACTER;      // dialogue → siguiente personaje
+  return SP.ACTION;                           // action / scene → action
+};
+
+const screenplayTab = () => {
+  pushUndo(snapshot());
+  const ln    = state.lines[state.cursorLine];
+  const ind   = spIndent(ln);
+  const body  = ln.trimStart();
+  let next;
+  if      (ind >= 20) next = SP.DIALOGUE;
+  else if (ind >= 14) next = SP.ACTION;
+  else if (ind >= 8)  next = SP.PARENTHETICAL;
+  else                next = SP.CHARACTER;
+  state.lines[state.cursorLine] = " ".repeat(next) + body;
+  state.cursorCol = next + Math.max(0, state.cursorCol - ind);
+  state.cursorCol = Math.min(state.cursorCol, state.lines[state.cursorLine].length);
+  autoSave();
+  render();
+};
+
+const screenplayEnter = () => {
+  if (state.selectionStart && state.selectionEnd) deselect();
+  pushUndo(snapshot());
+  const ln     = state.lines[state.cursorLine];
+  const ind    = spIndent(ln);
+  const left   = ln.slice(0, state.cursorCol);
+  const right  = ln.slice(state.cursorCol).trimStart();
+  const next   = spNextOnEnter(ind);
+  state.lines[state.cursorLine] = left;
+  state.lines.splice(state.cursorLine + 1, 0, " ".repeat(next) + right);
+  state.cursorLine++;
+  state.cursorCol = next;
+  autoSave();
+  render();
+};
+
+// ─── Menú de configuración ────────────────────────────────────────────────────
+const { SETTINGS_DEFS, save: saveSettings } = require("./settings");
+
+const changeSetting = (def, delta) => {
+  const cfg = state.cfg;
+  if (def.type === "boolean") {
+    cfg[def.key] = !cfg[def.key];
+  } else if (def.type === "number") {
+    cfg[def.key] = Math.max(def.min, Math.min(def.max, cfg[def.key] + delta * def.step));
+  } else if (def.type === "options") {
+    const idx = def.options.indexOf(cfg[def.key]);
+    cfg[def.key] = def.options[(idx + delta + def.options.length) % def.options.length];
+  }
+  saveSettings(state.fullPath, cfg);
+  render();
+};
+
+const handleSettingsInput = (code) => {
+  if (code === "\x1b[A") {
+    state.settingsIdx = Math.max(0, state.settingsIdx - 1);
+    render();
+    return;
+  }
+  if (code === "\x1b[B") {
+    state.settingsIdx = Math.min(SETTINGS_DEFS.length - 1, state.settingsIdx + 1);
+    render();
+    return;
+  }
+  if (code === "\x1b[C") { changeSetting(SETTINGS_DEFS[state.settingsIdx],  1); return; }
+  if (code === "\x1b[D") { changeSetting(SETTINGS_DEFS[state.settingsIdx], -1); return; }
+  if (code === "\r" || code === "\x08") {
+    state.settingsMode = false;
+    render();
+  }
+};
+
 const ensureCursorVisible = () => {};
 const playNav = () => playClick(state.cfg, "key"); // scroll manejado en render
+
+// ─── Switcher de archivos ─────────────────────────────────────────────────────
+const loadFileIntoState = (filePath) => {
+  try {
+    state.lines = fs.existsSync(filePath)
+      ? fs.readFileSync(filePath, "utf-8").split("\n")
+      : [""];
+    state.fullPath = filePath;
+    state.cursorLine = 0;
+    state.cursorCol = 0;
+    state.scrollTop = 0;
+    state.undoStack = [];
+    state.redoStack = [];
+    deselect();
+    state.cfg = require("./settings").load(filePath);
+    restorePosition();
+  } catch {}
+};
+
+const openSwitcher = () => {
+  if (state.saveTimeout) {
+    clearTimeout(state.saveTimeout);
+    state.saveTimeout = null;
+    fs.writeFileSync(state.fullPath, state.lines.join("\n"));
+    savePosition();
+  }
+  const dir = path.dirname(state.fullPath);
+  const currentFile = path.basename(state.fullPath);
+  let files;
+  try {
+    files = fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+  } catch {
+    return;
+  }
+  if (files.length === 0) return;
+  state.switcherFiles = files;
+  const idx = files.indexOf(currentFile);
+  state.switcherIdx = idx >= 0 ? idx : 0;
+  state.switcherMode = true;
+  render();
+};
+
+const switcherNavigate = (delta) => {
+  if (!state.switcherMode || !state.switcherFiles.length) return;
+  state.switcherIdx =
+    (state.switcherIdx + delta + state.switcherFiles.length) %
+    state.switcherFiles.length;
+  const dir = path.dirname(state.fullPath);
+  loadFileIntoState(path.join(dir, state.switcherFiles[state.switcherIdx]));
+  render();
+};
+
+const closeSwitcher = () => {
+  state.switcherMode = false;
+  render();
+};
+
+// Retorna true si consumió la tecla, false para que caiga al handler normal
+const handleSwitcherInput = (code) => {
+  if (code === "\x1b[A") { switcherNavigate(-1); return true; }
+  if (code === "\x1b[B") { switcherNavigate(1); return true; }
+  if (code === "\r")     { closeSwitcher();      return true; }
+  return true; // cualquier otra tecla: ignorar mientras el panel esté abierto
+};
 
 module.exports = {
   save,
@@ -660,4 +826,9 @@ module.exports = {
   handleGotoInput,
   ensureCursorVisible,
   playNav,
+  openSwitcher,
+  switcherNavigate,
+  closeSwitcher,
+  handleSwitcherInput,
+  handleSettingsInput,
 };

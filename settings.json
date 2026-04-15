@@ -4,6 +4,8 @@
   "autosaveMs": 500,
   "fadeGray": 249,
   "cursorBlinkMs": 600,
+  "cursorStyle": "underline",
+  "mode": "screenplay",
   "sound": true,
   "soundVolume": 60,
   "h1Gray": 255,

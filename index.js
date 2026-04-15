@@ -161,6 +161,25 @@ process.stdin.on("data", (buffer) => {
     return;
   }
 
+  // Ctrl+Shift+↑ / Ctrl+Shift+↓ — switcher de archivos
+  if (code === "\x1b[1;6A" || code === "\x1b[1;6B") {
+    const delta = code === "\x1b[1;6A" ? -1 : 1;
+    if (!state.switcherMode) editor.openSwitcher();
+    editor.switcherNavigate(delta);
+    return;
+  }
+
+  if (state.settingsMode) {
+    editor.handleSettingsInput(code);
+    return;
+  }
+
+  if (state.switcherMode) {
+    if (editor.handleSwitcherInput(code)) return;
+    // Si no fue consumido (cualquier otra tecla), el switcher se cerró
+    // y la tecla cae al handler normal abajo
+  }
+
   if (state.searchMode) {
     editor.handleSearchInput(code);
     return;
@@ -226,10 +245,11 @@ process.stdin.on("data", (buffer) => {
     return;
   } // Ctrl+G
   if (code === "\x08") {
-    state.helpMode = !state.helpMode;
+    state.settingsMode = !state.settingsMode;
+    if (state.settingsMode) state.settingsIdx = 0;
     render();
     return;
-  } // Ctrl+H ayuda
+  } // Ctrl+H configuración
   if (code === "\x09") {
     editor.handleTab();
     return;
@@ -395,7 +415,7 @@ state.blinkInterval = setInterval(blinkTick, state.cfg.cursorBlinkMs);
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 setTimeout(() => {
-  T.out("\x1b[?25h");
+  T.out("\x1b[?25l");
   T.out("\x1b[?2004h");
   buildWavPool();
   editor.restorePosition();
