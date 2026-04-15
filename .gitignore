@@ -1,0 +1,9 @@
+	node_modules/
+*.log
+.DS_Store
+untitled.md
+.poe_positions.json
+
+# Archivos de usuario — no subir sounds ni settings personales
+# sounds/ se excluye porque los samples de Mechvibes tienen licencia propia
+sounds/

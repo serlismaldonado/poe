@@ -1,0 +1,35 @@
+{
+  "name": "@serlismaldonado/poe",
+  "version": "1.0.3",
+  "description": "Minimalista editor de markdown para terminal con focus mode y sonido de teclado mecánico",
+  "main": "index.js",
+  "bin": {
+    "poe": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "files": [
+    "index.js",
+    "state.js",
+    "settings.js",
+    "terminal.js",
+    "sound.js",
+    "render.js",
+    "editor.js",
+    "README.md"
+  ],
+  "keywords": [
+    "markdown",
+    "editor",
+    "terminal",
+    "distraction-free",
+    "focus"
+  ],
+  "author": "Serlis Maldonado",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {}
+}

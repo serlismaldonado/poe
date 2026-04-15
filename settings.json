@@ -1,0 +1,15 @@
+{
+  "wrapColumn": 80,
+  "tabSize": 2,
+  "autosaveMs": 500,
+  "fadeGray": 249,
+  "cursorBlinkMs": 600,
+  "sound": true,
+  "soundVolume": 60,
+  "h1Gray": 255,
+  "h2Gray": 248,
+  "h3Gray": 242,
+  "boldGray": 250,
+  "italicGray": 245,
+  "searchBg": 58
+}
