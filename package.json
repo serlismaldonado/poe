@@ -1,6 +1,6 @@
 {
   "name": "@serlismaldonado/poe",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Minimalista editor de markdown para terminal con focus mode y sonido de teclado mecánico",
   "main": "index.js",
   "bin": {

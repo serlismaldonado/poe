@@ -18,6 +18,8 @@ const DEFAULT_SETTINGS = {
   boldGray:      255,         // **negrita**
   italicGray:    245,         // *cursiva*
   searchBg:      58,          // fondo del highlight de búsqueda
+  characterColor: 51,         // color de nombres de personaje (0–255)
+  accentColor:    36,         // color de acento general: cursor, búsqueda, switcher (0–255)
 };
 
 // Definiciones para el menú de configuración
@@ -37,6 +39,8 @@ const SETTINGS_DEFS = [
   { key: "boldGray",     label: "bold gris",       type: "number",  min: 232,  max: 255,  step: 1 },
   { key: "italicGray",   label: "italic gris",     type: "number",  min: 232,  max: 255,  step: 1 },
   { key: "searchBg",     label: "búsqueda fondo",  type: "number",  min: 0,    max: 255,  step: 1 },
+  { key: "characterColor", label: "personaje color", type: "number",  min: 0,    max: 255,  step: 1 },
+  { key: "accentColor",   label: "acento color",    type: "number",  min: 0,    max: 255,  step: 1 },
 ];
 
 const load = (filePath) => {

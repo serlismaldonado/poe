@@ -302,6 +302,7 @@ const handleChar = (ch) => {
 
   playClick(cfg, "key");
   autoSave();
+  updateAutocomplete();
   render();
 };
 
@@ -326,6 +327,7 @@ const handleBackspace = () => {
   }
   playClick(state.cfg, "backspace");
   autoSave();
+  updateAutocomplete();
   render();
 };
 
@@ -349,6 +351,22 @@ const handleDelete = () => {
 
 const handleEnter = () => {
   if (state.cfg.mode === "screenplay") { screenplayEnter(); return; }
+
+  // Aceptar cierre de marcador inline con Enter: salta el ** o * y agrega espacio
+  const ahead = state.lines[state.cursorLine].slice(state.cursorCol);
+  const markerLen = ahead.startsWith("**") ? 2 : ahead.startsWith("*") ? 1 : 0;
+  if (markerLen) {
+    pushUndo(snapshot());
+    state.cursorCol += markerLen;
+    const ln = state.lines[state.cursorLine];
+    state.lines[state.cursorLine] = ln.slice(0, state.cursorCol) + " " + ln.slice(state.cursorCol);
+    state.cursorCol++;
+    playClick(state.cfg, "enter");
+    autoSave();
+    render();
+    return;
+  }
+
   if (state.selectionStart && state.selectionEnd) deselect();
   pushUndo(snapshot());
   const ln = state.lines[state.cursorLine];
@@ -374,6 +392,29 @@ const handleEnter = () => {
     return;
   }
 
+  // Auto-numbered list (soporta 1. / 1.1. / 1.2.3. etc.)
+  const nm = ln.match(/^(\s*)(\d+(?:\.\d+)*)\. (.*)/);
+  if (nm) {
+    const indent   = nm[1];
+    const parts    = nm[2].split(".");
+    parts[parts.length - 1] = String(parseInt(parts[parts.length - 1], 10) + 1);
+    const nextNum  = parts.join(".");
+    if (nm[3].trim() === "" && state.cursorCol === ln.length) {
+      state.lines[state.cursorLine] = "";
+      state.cursorCol = 0;
+    } else {
+      const nextPrefix = indent + nextNum + ". ";
+      state.lines[state.cursorLine] = left;
+      state.lines.splice(state.cursorLine + 1, 0, nextPrefix + right);
+      state.cursorLine++;
+      state.cursorCol = nextPrefix.length;
+    }
+    playClick(state.cfg, "enter");
+    autoSave();
+    render();
+    return;
+  }
+
   state.lines[state.cursorLine] = left;
   state.lines.splice(state.cursorLine + 1, 0, right);
   state.cursorLine++;
@@ -384,11 +425,12 @@ const handleEnter = () => {
 };
 
 const handleTab = () => {
+  if (state.acMode && state.acSuggestions.length) { completeAutocomplete(); return; }
   if (state.cfg.mode === "screenplay") { screenplayTab(); return; }
   pushUndo(snapshot());
   const ln = state.lines[state.cursorLine];
   const tab = " ".repeat(state.cfg.tabSize);
-  if (/^\s*[-*+] /.test(ln)) {
+  if (/^\s*[-*+] /.test(ln) || /^\s*\d+(?:\.\d+)*\. /.test(ln)) {
     state.lines[state.cursorLine] = tab + ln;
     state.cursorCol += state.cfg.tabSize;
   } else {
@@ -638,6 +680,54 @@ const handleGotoInput = (code) => {
   render();
 };
 
+// ─── Autocompletado de personajes ─────────────────────────────────────────────
+const extractCharacters = () => {
+  const chars = new Set();
+  for (const ln of state.lines) {
+    const ind = ln.match(/^ */)[0].length;
+    if (ind >= 20) {
+      const trimmed = ln.trimStart();
+      if (trimmed.length > 0 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed)) {
+        chars.add(trimmed);
+      }
+    }
+  }
+  return [...chars].sort();
+};
+
+const closeAutocomplete = () => {
+  state.acMode = false;
+  state.acSuggestions = [];
+  state.acIdx = 0;
+};
+
+const updateAutocomplete = () => {
+  if (state.cfg.mode !== "screenplay") { closeAutocomplete(); return; }
+  const ln  = state.lines[state.cursorLine];
+  const ind = ln.match(/^ */)[0].length;
+  if (ind < 20) { closeAutocomplete(); return; }
+  const typed = ln.trimStart().toUpperCase();
+  if (!typed) { closeAutocomplete(); return; }
+  const all = extractCharacters();
+  const suggestions = all.filter(c => c.startsWith(typed) && c !== typed);
+  if (!suggestions.length) { closeAutocomplete(); return; }
+  state.acMode = true;
+  state.acSuggestions = suggestions;
+  // Keep acIdx valid
+  if (state.acIdx >= suggestions.length) state.acIdx = 0;
+};
+
+const completeAutocomplete = () => {
+  if (!state.acMode || !state.acSuggestions.length) return;
+  const ind = state.lines[state.cursorLine].match(/^ */)[0].length;
+  pushUndo(snapshot());
+  state.lines[state.cursorLine] = " ".repeat(ind) + state.acSuggestions[state.acIdx];
+  state.cursorCol = state.lines[state.cursorLine].length;
+  closeAutocomplete();
+  autoSave();
+  render();
+};
+
 // ─── Modo Screenplay ──────────────────────────────────────────────────────────
 const SP = { ACTION: 0, CHARACTER: 20, DIALOGUE: 10, PARENTHETICAL: 15 };
 
@@ -668,6 +758,7 @@ const screenplayTab = () => {
 };
 
 const screenplayEnter = () => {
+  closeAutocomplete();
   if (state.selectionStart && state.selectionEnd) deselect();
   pushUndo(snapshot());
   const ln     = state.lines[state.cursorLine];
@@ -676,9 +767,17 @@ const screenplayEnter = () => {
   const right  = ln.slice(state.cursorCol).trimStart();
   const next   = spNextOnEnter(ind);
   state.lines[state.cursorLine] = left;
-  state.lines.splice(state.cursorLine + 1, 0, " ".repeat(next) + right);
-  state.cursorLine++;
+  if (next === SP.CHARACTER) {
+    // Línea en blanco de separación antes del nuevo personaje
+    state.lines.splice(state.cursorLine + 1, 0, "");
+    state.lines.splice(state.cursorLine + 2, 0, " ".repeat(next) + right);
+    state.cursorLine += 2;
+  } else {
+    state.lines.splice(state.cursorLine + 1, 0, " ".repeat(next) + right);
+    state.cursorLine++;
+  }
   state.cursorCol = next;
+  playClick(state.cfg, "enter");
   autoSave();
   render();
 };
@@ -831,4 +930,5 @@ module.exports = {
   closeSwitcher,
   handleSwitcherInput,
   handleSettingsInput,
+  closeAutocomplete,
 };

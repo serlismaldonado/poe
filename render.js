@@ -51,8 +51,9 @@ const screenplayHighlight = (lineText, chunk, charOffset, rowNum, isCurrentLine)
   } else if (/^(CUT TO:|FADE OUT|FADE IN|DISSOLVE TO|SMASH CUT|MATCH CUT)/i.test(trimmed)) {
     base = baseIndent = T.gray(241);
   } else if (indent >= 20 && trimmed === trimmed.toUpperCase() && trimmed.length > 0) {
-    base        = T.bold + T.underline + T.cyan;
-    baseIndent  = T.bold + T.cyan;
+    const cc    = T.gray(cfg.characterColor ?? 51);
+    base        = T.bold + T.underline + cc;
+    baseIndent  = T.bold + cc;
   } else if (indent >= 14 && trimmed.startsWith("(")) {
     base = baseIndent = T.italic + T.gray(244);
   } else if (indent >= 8) {
@@ -62,11 +63,15 @@ const screenplayHighlight = (lineText, chunk, charOffset, rowNum, isCurrentLine)
   // Underline solo sobre el texto, no sobre los espacios de indentación
   for (let i = 0; i < fullLen; i++) styles[i] = i < indent ? baseIndent : base;
 
-  // Focus mode
+  // Focus mode — escenas y personajes conservan su estilo siempre
   if (!state.selectionStart || !state.selectionEnd) {
     if (!isCurrentLine) {
-      const faded = T.gray(cfg.fadeGray);
-      for (let i = 0; i < fullLen; i++) styles[i] = faded;
+      const isSceneHeading = /^(INT\.|EXT\.|INT\/EXT|I\/E)/i.test(trimmed);
+      const isCharacter    = indent >= 20 && trimmed.length > 0 && trimmed === trimmed.toUpperCase();
+      if (!isSceneHeading && !isCharacter) {
+        const faded = T.gray(cfg.fadeGray);
+        for (let i = 0; i < fullLen; i++) styles[i] = faded;
+      }
     }
   }
 
@@ -125,25 +130,16 @@ const syntaxHighlightChunk = (
   const listM = lineText.match(/^(\s*)([-*+])(\s)/);
   if (listM) styles[listM[1].length] = T.green;
 
+  // Numbered list — colorear "N." / "N.N." / "N.N.N."
+  const numListM = lineText.match(/^(\s*)(\d+(?:\.\d+)*\.)(\s)/);
+  if (numListM) {
+    const start = numListM[1].length;
+    for (let i = start; i < start + numListM[2].length; i++) styles[i] = T.green;
+  }
+
   const markerChars = new Set();
   const bs = T.getBoldStyle(cfg);
   const is = T.getItalicStyle(cfg);
-
-  // Si la línea empieza dentro de un bloque bold abierto, aplicar desde el inicio
-  if (spanState && spanState.boldOpen) {
-    const closeIdx = lineText.indexOf("**");
-    if (closeIdx === -1) {
-      // Toda la línea está en bold
-      for (let i = 0; i < fullLen; i++) styles[i] = bs;
-    } else {
-      // Bold hasta el cierre
-      for (let i = 0; i < closeIdx; i++) styles[i] = bs;
-      styles[closeIdx] = bs;
-      markerChars.add(closeIdx);
-      styles[closeIdx + 1] = bs;
-      markerChars.add(closeIdx + 1);
-    }
-  }
 
   // Bold inline normal **...**
   const boldRe = /\*\*(.*?)\*\*/g;
@@ -361,7 +357,7 @@ const renderSettings = () => {
 
     const bg        = isSel ? bgSel : bgPanel;
     const labelClr  = isSel ? T.gray(255) : T.gray(244);
-    const valClr    = isSel ? T.cyan      : T.gray(248);
+    const valClr    = isSel ? T.gray(cfg.accentColor ?? 36) : T.gray(248);
     const valDisplay = isSel
       ? `◀ ${valStr} ▶`.padEnd(VAL_W)
       : valStr.padEnd(VAL_W);
@@ -404,7 +400,7 @@ const renderSwitcher = () => {
 
     T.setCursor(startRow + r, startCol);
     const bg        = isSel ? selBg : panelBg;
-    const indicator = isSel ? T.cyan + "▶ " + T.reset + bg : "  ";
+    const indicator = isSel ? T.gray(state.cfg.accentColor ?? 36) + "▶ " + T.reset + bg : "  ";
     const nameColor = isSel ? T.bold + T.gray(255) : T.gray(244);
     T.out(bg + " " + indicator + nameColor + fname.padEnd(maxLen + 2) + T.reset);
   }
@@ -418,10 +414,10 @@ const drawCursor = (cfg, blink, ch) => {
     return blink ? T.inverse + c + T.reset : c;
   }
   if (style === "underline") {
-    return blink ? T.underline + T.cyan + c + T.reset : c;
+    return blink ? T.underline + T.gray(cfg.accentColor ?? 36) + c + T.reset : c;
   }
   // bar (default)
-  return blink ? T.cyan + "│" + T.reset : " ";
+  return blink ? T.gray(cfg.accentColor ?? 36) + "│" + T.reset : " ";
 };
 
 // ─── Render principal ─────────────────────────────────────────────────────────
@@ -440,13 +436,13 @@ const render = () => {
   const curSR = cursorScreenRow(screenRows);
   const spanStates = computeSpanStates(state.lines);
 
-  // Ajustar scroll
+  // Ajustar scroll (área de contenido = SCREEN_HEIGHT - 1, la última fila es padding)
   if (curSR < state.scrollTop) state.scrollTop = curSR;
-  if (curSR >= state.scrollTop + T.SCREEN_HEIGHT)
-    state.scrollTop = curSR - T.SCREEN_HEIGHT + 1;
+  if (curSR >= state.scrollTop + T.SCREEN_HEIGHT - 1)
+    state.scrollTop = curSR - T.SCREEN_HEIGHT + 2;
   if (state.scrollTop < 0) state.scrollTop = 0;
 
-  for (let row = 0; row < T.SCREEN_HEIGHT; row++) {
+  for (let row = 0; row < T.SCREEN_HEIGHT - 1; row++) {
     T.setCursor(row, 0);
     const srIdx = row + state.scrollTop;
     if (srIdx >= screenRows.length) {
@@ -479,7 +475,7 @@ const render = () => {
     T.out(
       pad +
         T.bold +
-        T.cyan +
+        T.gray(cfg.accentColor ?? 36) +
         `/ ${state.searchQuery}` +
         T.reset +
         (state.searchMatches.length
@@ -492,7 +488,7 @@ const render = () => {
     T.out(
       pad +
         T.bold +
-        T.cyan +
+        T.gray(cfg.accentColor ?? 36) +
         `: ${state.gotoInput}` +
         T.reset +
         T.gray(244) +
@@ -502,23 +498,16 @@ const render = () => {
   } else {
     const words = state.lines.join(" ").split(/\s+/).filter(Boolean).length;
 
-    // Spinner junto al contador (izquierda)
-    let spinner = "";
-    if (state.isSaving) {
-      spinner = T.spinnerFrames[state.spinnerIndex];
-      state.spinnerIndex = (state.spinnerIndex + 1) % T.spinnerFrames.length;
-    }
-    const spinnerPart = spinner ? `  ${spinner}` : "";
-
+    const modeLabel = cfg.mode === "screenplay" ? "screenplay" : "markdown";
     const left =
       T.bold + T.gray(255) +
       `${state.cursorLine + 1}:${state.cursorCol + 1}` +
       T.reset + T.gray(244) +
       `  ${state.lines.length}L  ${words}W` +
-      (spinner ? `  ${spinner}` : "") +
+      `  ${modeLabel}` +
       T.reset;
     const leftLen =
-      `${state.cursorLine + 1}:${state.cursorCol + 1}  ${state.lines.length}L  ${words}W${spinnerPart}`
+      `${state.cursorLine + 1}:${state.cursorCol + 1}  ${state.lines.length}L  ${words}W  ${modeLabel}`
         .length;
 
     // Elemento screenplay (derecha)
@@ -535,12 +524,12 @@ const render = () => {
       else if (ind >= 14) element = "paréntesis";
       else if (ind >= 8)  element = "diálogo";
       else                element = "acción";
-      rightLabel    = T.cyan + element + T.reset;
+      rightLabel    = T.gray(cfg.characterColor ?? 51) + element + T.reset;
       rightLabelLen = element.length;
     }
 
     if (rightLabelLen) {
-      const rightSpace = Math.max(1, T.SCREEN_WIDTH - offsetX - leftLen - rightLabelLen);
+      const rightSpace = Math.max(1, contentWidth - leftLen - rightLabelLen);
       T.out(pad + left + " ".repeat(rightSpace) + rightLabel);
     } else {
       T.out(pad + left);
@@ -553,16 +542,50 @@ const render = () => {
   T.setCursor(curSR - state.scrollTop, offsetX + cursorChunkCol);
   T.out(drawCursor(cfg, state.cursorBlink, state.lines[state.cursorLine][state.cursorCol]));
 
+  // Fila de padding entre contenido y barra de estado
+  T.setCursor(T.SCREEN_HEIGHT - 1, 0);
+  T.clearLine();
+
   // Overlays (encima de todo)
   renderSwitcher();
   renderSettings();
+
+  // Autocomplete popup — aparece debajo del cursor si cabe, arriba si no
+  if (state.acMode && state.acSuggestions.length && !state.switcherMode && !state.settingsMode) {
+    const suggestions  = state.acSuggestions;
+    const maxVisible   = Math.min(suggestions.length, 6);
+    const scrollOffset = Math.max(0, state.acIdx - maxVisible + 1);
+    const maxW         = suggestions.reduce((m, s) => Math.max(m, s.length), 0);
+    const cursorSR     = curSR - state.scrollTop;
+    const popupCol     = offsetX + (state.cursorCol % contentWidth);
+    const bgPanel      = "\x1b[48;5;234m";
+    const bgSel        = "\x1b[48;5;238m";
+
+    // Preferir abajo; si no cabe, mostrar arriba del cursor
+    const spaceBelow = (T.SCREEN_HEIGHT - 1) - (cursorSR + 1);
+    const popupRow   = spaceBelow >= maxVisible
+      ? cursorSR + 1
+      : Math.max(0, cursorSR - maxVisible);
+
+    for (let r = 0; r < maxVisible; r++) {
+      const idx = r + scrollOffset;
+      if (idx >= suggestions.length) break;
+      const row = popupRow + r;
+      if (row < 0 || row >= T.SCREEN_HEIGHT - 1) break;
+      const isSel = idx === state.acIdx;
+      T.setCursor(row, popupCol);
+      const bg  = isSel ? bgSel : bgPanel;
+      const clr = isSel ? T.bold + T.gray(cfg.characterColor ?? 51) : T.gray(244);
+      T.out(bg + " " + clr + suggestions[idx].padEnd(maxW + 1) + " " + T.reset);
+    }
+  }
 
   T.endRender();
 };
 
 // Blink tick — llamado desde el intervalo en index.js
 const blinkTick = () => {
-  if (state.isSaving || state.settingsMode) {
+  if (state.settingsMode) {
     render();
     return;
   }

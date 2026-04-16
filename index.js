@@ -180,6 +180,26 @@ process.stdin.on("data", (buffer) => {
     // y la tecla cae al handler normal abajo
   }
 
+  // Autocompletado — ↑↓ navegan el popup, Esc lo cierra; el resto cae al handler normal
+  if (state.acMode) {
+    if (code === "\x1b[A") {
+      state.acIdx = Math.max(0, state.acIdx - 1);
+      render();
+      return;
+    }
+    if (code === "\x1b[B") {
+      state.acIdx = Math.min(state.acSuggestions.length - 1, state.acIdx + 1);
+      render();
+      return;
+    }
+    if (code === "\x1b") {
+      editor.closeAutocomplete();
+      render();
+      return;
+    }
+    // Cualquier otra tecla (incluyendo Tab, Enter, chars, Backspace) cae abajo
+  }
+
   if (state.searchMode) {
     editor.handleSearchInput(code);
     return;
