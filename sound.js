@@ -4,8 +4,13 @@
 const fs = require("fs");
 const path = require("path");
 const { execFile, execSync } = require("child_process");
+const os = require("os");
+
+// En macOS usamos afplay (CoreAudio, arranca ~5x más rápido que ffplay)
+const USE_AFPLAY = os.platform() === "darwin";
 
 const hasFfplay = (() => {
+  if (USE_AFPLAY) return false;
   try {
     execSync("ffplay -version", { stdio: "ignore" });
     return true;
@@ -49,7 +54,6 @@ const resolveSound = (type) => {
     return path.join(SOUNDS_DIR, SOUND_MAP.enter);
   if (type === "backspace" && available.backspace)
     return path.join(SOUNDS_DIR, SOUND_MAP.backspace);
-  // Teclas normales: rotar entre las disponibles
   if (available.keys && available.keys.length) {
     const file = available.keys[keyIdx % available.keys.length];
     keyIdx++;
@@ -59,29 +63,23 @@ const resolveSound = (type) => {
 };
 
 const playSound = (type, cfg) => {
-  if (!cfg.sound || !hasFfplay) return;
+  if (!cfg.sound) return;
   const file = resolveSound(type);
   if (!file) return;
 
-  execFile(
-    "ffplay",
-    [
-      "-nodisp",
-      "-autoexit",
-      "-loglevel",
-      "quiet",
-      "-volume",
-      String(cfg.soundVolume ?? 60),
-      file,
-    ],
-    { stdio: "ignore" },
-  );
+  if (USE_AFPLAY) {
+    const vol = String(Math.max(0, Math.min(1, (cfg.soundVolume ?? 60) / 100)));
+    execFile("afplay", ["-v", vol, file], { stdio: "ignore" });
+  } else if (hasFfplay) {
+    execFile(
+      "ffplay",
+      ["-nodisp", "-autoexit", "-loglevel", "quiet", "-volume", String(cfg.soundVolume ?? 60), file],
+      { stdio: "ignore" },
+    );
+  }
 };
 
-// Compatibilidad con API anterior
-const buildWavPool = () => {
-  checkSounds();
-};
+const buildWavPool = () => { checkSounds(); };
 const playClick = (cfg, type = "key") => playSound(type, cfg);
 
 module.exports = { buildWavPool, playClick, playSound };

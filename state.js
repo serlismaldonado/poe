@@ -33,9 +33,20 @@ const state = {
   searchIdx:     0,
 
   // Modos UI
-  helpMode: false,
+  settingsMode: false,
+  settingsIdx:  0,
   gotoMode: false,
   gotoInput: '',
+
+  // Switcher de archivos
+  switcherMode:  false,
+  switcherFiles: [],
+  switcherIdx:   0,
+
+  // Autocompletado de personajes
+  acMode:        false,
+  acSuggestions: [],
+  acIdx:         0,
 
   // Config
   cfg: {},
