@@ -1,73 +1,73 @@
 # poe
 
-Editor de markdown minimalista para terminal. Sin distracciones.
+Minimalist markdown editor for terminal. No distractions.
 
 ```
-node index.js archivo.md
+node index.js file.md
 ```
 
-## Características
+## Features
 
-- Focus mode — atenúa todo excepto la línea activa
-- Syntax highlight de markdown (headings, bold, italic, code, links)
-- Headings con jerarquía visual en escala de grises
-- Marcadores `**` y `#` ocultos fuera de la línea activa
-- Zen mode — texto centrado con ancho configurable
-- Word wrap visual sin modificar el archivo
-- Autosave con indicador en la barra de estado
-- Undo / Redo (hasta 200 pasos)
-- Búsqueda en tiempo real con Ctrl+F
-- Sonido de teclado mecánico (requiere ffmpeg)
-- Posición del cursor restaurada al reabrir el archivo
+- Focus mode — dims everything except the active line
+- Syntax highlight for markdown (headings, bold, italic, code, links)
+- Headings with visual hierarchy in grayscale
+- `**` and `#` markers hidden outside the active line
+- Zen mode — centered text with configurable width
+- Visual word wrap without modifying the file
+- Autosave with indicator in the status bar
+- Undo / Redo (up to 200 steps)
+- Real-time search with Ctrl+F
+- Mechanical keyboard sound (requires ffmpeg)
+- Cursor position restored when reopening the file
 
-## Requisitos
+## Requirements
 
 - Node.js 14+
-- ffmpeg (opcional, para sonido): `brew install ffmpeg`
+- ffmpeg (optional, for sound): `brew install ffmpeg`
 
-## Instalación
+## Installation
 
 ```bash
 git clone https://github.com/serlismaldonado/poe.git
 cd poe
-npm install   # no hay dependencias, solo inicializa el proyecto
+npm install   # no dependencies, just initializes the project
 ```
 
-### Sonido
+### Sound
 
-Para instalar los samples de teclado mecánico automáticamente:
+To automatically install mechanical keyboard samples:
 
 ```bash
 poe --install-sounds
 ```
 
-Descarga samples de NK Cream desde el repo de [Mechvibes](https://github.com/hainguyents13/mechvibes) y los instala en `~/.poe/sounds/`. Requiere `git` instalado.
+Downloads NK Cream samples from [Mechvibes](https://github.com/hainguyents13/mechvibes) repo and installs them to `~/.poe/sounds/`. Requires `git` installed.
 
-Para desactivar el sonido, pon `"sound": false` en `settings.json`.
+To disable sound, set `"sound": false` in `settings.json`.
 
-## Atajos
+## Shortcuts
 
-| Atajo | Acción |
+| Shortcut | Action |
 |---|---|
-| `Ctrl+S` | Guardar |
-| `Ctrl+Z` | Deshacer |
-| `Ctrl+Y` | Rehacer |
-| `Ctrl+F` | Buscar |
-| `Ctrl+G` | Ir a línea |
-| `Ctrl+H` | Ayuda |
-| `Ctrl+B` | Negrita |
-| `Ctrl+O` | Cursiva |
-| `Ctrl+D` | Duplicar línea |
-| `Ctrl+K` | Borrar línea |
-| `Ctrl+A` | Seleccionar todo |
-| `Shift+↑↓←→` | Selección |
-| `Alt+↑↓` | Mover línea |
-| `Tab` / `Shift+Tab` | Indentar / desindentar |
-| `Ctrl+Q` | Salir |
+| `Ctrl+S` | Save |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` | Redo |
+| `Ctrl+F` | Search |
+| `Ctrl+G` | Go to line |
+| `Ctrl+H` | Help |
+| `Ctrl+B` | Bold |
+| `Ctrl+O` | Italic |
+| `Ctrl+D` | Duplicate line |
+| `Ctrl+K` | Delete line |
+| `Ctrl+A` | Select all |
+| `Shift+↑↓←→` | Selection |
+| `Alt+↑↓` | Move line |
+| `Tab` / `Shift+Tab` | Indent / dedent |
+| `Ctrl+Q` | Quit |
 
-## Configuración
+## Configuration
 
-Crea un `settings.json` en la misma carpeta que tu archivo:
+Create a `settings.json` in the same folder as your file:
 
 ```json
 {
@@ -87,19 +87,19 @@ Crea un `settings.json` en la misma carpeta que tu archivo:
 }
 ```
 
-## Estructura
+## Structure
 
 ```
 poe/
-├── index.js      — entrada y manejo de input
-├── state.js      — estado compartido
-├── settings.js   — carga de configuración
-├── terminal.js   — helpers ANSI y colores
-├── sound.js      — síntesis y reproducción de sonido
-├── render.js     — syntax highlight y dibujo de pantalla
-└── editor.js     — lógica de edición, movimiento y búsqueda
+├── index.js      — entry and input handling
+├── state.js      — shared state
+├── settings.js   — config loading
+├── terminal.js   — ANSI helpers and colors
+├── sound.js      — sound synthesis and playback
+├── render.js     — syntax highlight and screen drawing
+└── editor.js     — editing logic, movement and search
 ```
 
-## Licencia
+## License
 
 MIT
