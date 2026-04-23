@@ -28,7 +28,7 @@ node index.js archivo.md
 ## Instalación
 
 ```bash
-git clone https://github.com/tu-usuario/poe.git
+git clone https://github.com/serlismaldonado/poe.git
 cd poe
 npm install   # no hay dependencias, solo inicializa el proyecto
 ```
