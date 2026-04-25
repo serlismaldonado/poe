@@ -17,7 +17,8 @@
     "sound.js",
     "render.js",
     "editor.js",
-    "README.md"
+    "README.md",
+    "demo.gif"
   ],
   "keywords": [
     "markdown",
