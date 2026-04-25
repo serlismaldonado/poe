@@ -9,7 +9,7 @@ poe file.md
 
 ## Preview
 
-![Preview](preview.png)
+![Preview](https://raw.githubusercontent.com/serlismaldonado/poe/main/preview.png)
 
 [![▶ Watch Full Demo](https://img.shields.io/badge/Watch%20Full%20Demo-YouTube-red?style=for-the-badge&logo=youtube)](https://youtu.be/_U_v6nr9wy4)
 
